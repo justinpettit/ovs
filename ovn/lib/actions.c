@@ -1661,6 +1661,25 @@ free_SET_QUEUE(struct ovnact_set_queue *a OVS_UNUSED)
 {
 }
 
+static void
+format_LOG(const struct ovnact_null *a OVS_UNUSED, struct ds *s)
+{
+    ds_put_cstr(s, "log;");
+}
+
+static void
+encode_LOG(const struct ovnact_null *a OVS_UNUSED,
+           const struct ovnact_encode_params *ep OVS_UNUSED,
+           struct ofpbuf *ofpacts)
+{
+    encode_controller_op(ACTION_OPCODE_LOG, ofpacts);
+}
+
+static void
+free_LOG(struct ovnact_null *a OVS_UNUSED)
+{
+}
+
 /* Parses an assignment or exchange or put_dhcp_opts action. */
 static void
 parse_set_action(struct action_context *ctx)
@@ -1733,6 +1752,8 @@ parse_action(struct action_context *ctx)
         parse_put_mac_bind(ctx, 128, ovnact_put_PUT_ND(ctx->ovnacts));
     } else if (lexer_match_id(ctx->lexer, "set_queue")) {
         parse_SET_QUEUE(ctx);
+    } else if (lexer_match_id(ctx->lexer, "log")) {
+        ovnact_put_LOG(ctx->ovnacts);
     } else {
         lexer_syntax_error(ctx->lexer, "expecting action");
     }

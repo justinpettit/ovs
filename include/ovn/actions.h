@@ -48,27 +48,28 @@ struct simap;
  *    "ovnact".  The structure must have a fixed length, that is, it may not
  *    end with a flexible array member.
  */
-#define OVNACTS                                     \
-    OVNACT(OUTPUT,        ovnact_null)              \
-    OVNACT(NEXT,          ovnact_next)              \
-    OVNACT(LOAD,          ovnact_load)              \
-    OVNACT(MOVE,          ovnact_move)              \
-    OVNACT(EXCHANGE,      ovnact_move)              \
-    OVNACT(DEC_TTL,       ovnact_null)              \
-    OVNACT(CT_NEXT,       ovnact_next)              \
-    OVNACT(CT_COMMIT,     ovnact_ct_commit)         \
-    OVNACT(CT_DNAT,       ovnact_ct_nat)            \
-    OVNACT(CT_SNAT,       ovnact_ct_nat)            \
-    OVNACT(CT_LB,         ovnact_ct_lb)             \
-    OVNACT(ARP,           ovnact_nest)              \
-    OVNACT(ND_NA,         ovnact_nest)              \
-    OVNACT(GET_ARP,       ovnact_get_mac_bind)      \
-    OVNACT(PUT_ARP,       ovnact_put_mac_bind)      \
-    OVNACT(GET_ND,        ovnact_get_mac_bind)      \
-    OVNACT(PUT_ND,        ovnact_put_mac_bind)      \
-    OVNACT(PUT_DHCPV4_OPTS, ovnact_put_dhcp_opts)   \
-    OVNACT(PUT_DHCPV6_OPTS, ovnact_put_dhcp_opts)   \
-    OVNACT(SET_QUEUE,       ovnact_set_queue)
+#define OVNACTS                                         \
+    OVNACT(OUTPUT,            ovnact_null)              \
+    OVNACT(NEXT,              ovnact_next)              \
+    OVNACT(LOAD,              ovnact_load)              \
+    OVNACT(MOVE,              ovnact_move)              \
+    OVNACT(EXCHANGE,          ovnact_move)              \
+    OVNACT(DEC_TTL,           ovnact_null)              \
+    OVNACT(CT_NEXT,           ovnact_next)              \
+    OVNACT(CT_COMMIT,         ovnact_ct_commit)         \
+    OVNACT(CT_DNAT,           ovnact_ct_nat)            \
+    OVNACT(CT_SNAT,           ovnact_ct_nat)            \
+    OVNACT(CT_LB,             ovnact_ct_lb)             \
+    OVNACT(ARP,               ovnact_nest)              \
+    OVNACT(ND_NA,             ovnact_nest)              \
+    OVNACT(GET_ARP,           ovnact_get_mac_bind)      \
+    OVNACT(PUT_ARP,           ovnact_put_mac_bind)      \
+    OVNACT(GET_ND,            ovnact_get_mac_bind)      \
+    OVNACT(PUT_ND,            ovnact_put_mac_bind)      \
+    OVNACT(PUT_DHCPV4_OPTS,   ovnact_put_dhcp_opts)     \
+    OVNACT(PUT_DHCPV6_OPTS,   ovnact_put_dhcp_opts)     \
+    OVNACT(SET_QUEUE,         ovnact_set_queue)         \
+    OVNACT(LOG,               ovnact_null)
 
 /* enum ovnact_type, with a member OVNACT_<ENUM> for each action. */
 enum OVS_PACKED_ENUM ovnact_type {
@@ -361,6 +362,12 @@ enum action_opcode {
      *   - Any number of DHCPv6 options.
      */
     ACTION_OPCODE_PUT_DHCPV6_OPTS,
+
+    /* "log".
+     *
+     * Takes no arguments.
+     */
+    ACTION_OPCODE_LOG,
 };
 
 /* Header. */

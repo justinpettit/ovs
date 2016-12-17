@@ -5440,6 +5440,73 @@ OVN_CLEANUP([hv1],[hv2])
 
 AT_CLEANUP
 
+
+AT_SETUP([ovn -- ACL logging])
+AT_KEYWORDS([ovn])
+ovn_start
+
+lp1_mac="f0:00:00:00:00:01"
+lp1_ip="192.168.1.2"
+
+lp2_mac="f0:00:00:00:00:02"
+lp2_ip="192.168.1.3"
+
+ovn-nbctl ls-add lsw0
+ovn-nbctl --wait=sb lsp-add lsw0 lp1
+ovn-nbctl --wait=sb lsp-add lsw0 lp2
+ovn-nbctl lsp-set-addresses lp1 $lp1_mac
+ovn-nbctl lsp-set-addresses lp2 $lp2_mac
+ovn-nbctl --wait=sb sync
+
+ovn-nbctl acl-add lsw0 to-lport 1000 'tcp.dst==80' drop
+ovn-nbctl --log acl-add lsw0 to-lport 1000 'tcp.dst==81' drop
+
+ovn-nbctl acl-add lsw0 to-lport 1000 'tcp.dst==82' allow
+ovn-nbctl --log acl-add lsw0 to-lport 1000 'tcp.dst==83' allow
+
+ovn-nbctl acl-add lsw0 to-lport 1000 'tcp.dst==82' allow-related
+ovn-nbctl --log acl-add lsw0 to-lport 1000 'tcp.dst==83' allow-related
+
+# Send packet that should be dropped without logging.
+packet="inport==\"lp1\" && eth.src==$lp1_mac && eth.dst==$lp2_mac &&
+        ip4 && ip.ttl==64 && ip4.src==$lp1_ip && ip4.dst==$lp2_ip &&
+        tcp && tcp.src==4360 && tcp.dst==80"
+as hv1 ovs-appctl -t ovn-controller inject-pkt "$packet"
+
+# Send packet that should be dropped with logging.
+packet="inport==\"lp1\" && eth.src==$lp1_mac && eth.dst==$lp2_mac &&
+        ip4 && ip.ttl==64 && ip4.src==$lp1_ip && ip4.dst==$lp2_ip &&
+        tcp && tcp.src==4361 && tcp.dst==81"
+as hv1 ovs-appctl -t ovn-controller inject-pkt "$packet"
+
+# Send packet that should be allowed without logging.
+packet="inport==\"lp1\" && eth.src==$lp1_mac && eth.dst==$lp2_mac &&
+        ip4 && ip.ttl==64 && ip4.src==$lp1_ip && ip4.dst==$lp2_ip &&
+        tcp && tcp.src==4360 && tcp.dst==80"
+as hv1 ovs-appctl -t ovn-controller inject-pkt "$packet"
+
+# Send packet that should be allowed with logging.
+packet="inport==\"lp1\" && eth.src==$lp1_mac && eth.dst==$lp2_mac &&
+        ip4 && ip.ttl==64 && ip4.src==$lp1_ip && ip4.dst==$lp2_ip &&
+        tcp && tcp.src==4361 && tcp.dst==81"
+as hv1 ovs-appctl -t ovn-controller inject-pkt "$packet"
+
+# Send packet that should allow related flows without logging.
+packet="inport==\"lp1\" && eth.src==$lp1_mac && eth.dst==$lp2_mac &&
+        ip4 && ip.ttl==64 && ip4.src==$lp1_ip && ip4.dst==$lp2_ip &&
+        tcp && tcp.src==4360 && tcp.dst==80"
+as hv1 ovs-appctl -t ovn-controller inject-pkt "$packet"
+
+# Send packet that should allow related flows with logging.
+packet="inport==\"lp1\" && eth.src==$lp1_mac && eth.dst==$lp2_mac &&
+        ip4 && ip.ttl==64 && ip4.src==$lp1_ip && ip4.dst==$lp2_ip &&
+        tcp && tcp.src==4361 && tcp.dst==81"
+as hv1 ovs-appctl -t ovn-controller inject-pkt "$packet"
+
+OVN_CLEANUP([hv])
+AT_CLEANUP
+
+
 AT_SETUP([ovn -- DSCP marking check])
 AT_KEYWORDS([ovn])
 ovn_start

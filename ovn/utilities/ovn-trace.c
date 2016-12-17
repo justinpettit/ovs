@@ -1400,6 +1400,10 @@ trace_actions(const struct ovnact *ovnacts, size_t ovnacts_len,
              * though, it would be easy enough to track the queue information
              * by adjusting uflow->skb_priority. */
             break;
+
+        case OVNACT_LOG:
+            /* xxx Fix this! */
+            break;
         }
 
     }

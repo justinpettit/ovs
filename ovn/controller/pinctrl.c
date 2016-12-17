@@ -716,6 +716,10 @@ process_packet_in(const struct ofp_header *msg)
                                        &continuation);
         break;
 
+    case ACTION_OPCODE_LOG:
+        VLOG_WARN_RL(&rl, "Received log message!");
+        break;
+
     default:
         VLOG_WARN_RL(&rl, "unrecognized packet-in opcode %"PRIu32,
                      ntohl(ah->opcode));
