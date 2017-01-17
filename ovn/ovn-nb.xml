@@ -80,6 +80,12 @@
         Global SSL configuration.
       </column>
     </group>
+    <group title="ACL Logging Options">
+      These columns controls the behaviour related to ACL logging.
+      <column name="acl_log_invalid">
+        Whether to log the packets classified as invalid by conntrack.
+      </column>
+    </group>
   </table>
 
   <table name="Logical_Switch" title="L2 logical switch">

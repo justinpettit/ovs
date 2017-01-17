@@ -2375,7 +2375,8 @@ build_pre_stateful(struct ovn_datapath *od, struct hmap *lflows)
 }
 
 static void
-build_acls(struct ovn_datapath *od, struct hmap *lflows)
+build_acls(struct northd_context *ctx, struct ovn_datapath *od,
+           struct hmap *lflows)
 {
     bool has_stateful = has_stateful_acl(od);
 
@@ -2421,12 +2422,14 @@ build_acls(struct ovn_datapath *od, struct hmap *lflows)
          * for deletion (bit 0 of ct_label is set).
          *
          * This is enforced at a higher priority than ACLs can be defined. */
+        const struct nbrec_nb_global *nbg = nbrec_nb_global_first(ctx->ovnnb_idl);
+        bool acl_log_invalid = nbg ? nbg->acl_log_invalid : false;
         ovn_lflow_add(lflows, od, S_SWITCH_IN_ACL, UINT16_MAX,
                       "ct.inv || (ct.est && ct.rpl && ct_label.blocked == 1)",
-                      "drop;");
+                      acl_log_invalid ? "log; /* drop */" : "drop;");
         ovn_lflow_add(lflows, od, S_SWITCH_OUT_ACL, UINT16_MAX,
                       "ct.inv || (ct.est && ct.rpl && ct_label.blocked == 1)",
-                      "drop;");
+                      acl_log_invalid ? "log; /* drop */" : "drop;");
 
         /* Ingress and Egress ACL Table (Priority 65535).
          *
@@ -2770,8 +2773,9 @@ build_stateful(struct ovn_datapath *od, struct hmap *lflows)
 }
 
 static void
-build_lswitch_flows(struct hmap *datapaths, struct hmap *ports,
-                    struct hmap *lflows, struct hmap *mcgroups)
+build_lswitch_flows(struct northd_context *ctx, struct hmap *datapaths,
+                    struct hmap *ports, struct hmap *lflows,
+                    struct hmap *mcgroups)
 {
     /* This flow table structure is documented in ovn-northd(8), so please
      * update ovn-northd.8.xml if you change anything. */
@@ -2790,7 +2794,7 @@ build_lswitch_flows(struct hmap *datapaths, struct hmap *ports,
         build_pre_acls(od, lflows);
         build_pre_lb(od, lflows);
         build_pre_stateful(od, lflows);
-        build_acls(od, lflows);
+        build_acls(ctx, od, lflows);
         build_qos(od, lflows);
         build_lb(od, lflows);
         build_stateful(od, lflows);
@@ -4466,7 +4470,7 @@ build_lflows(struct northd_context *ctx, struct hmap *datapaths,
     struct hmap lflows = HMAP_INITIALIZER(&lflows);
     struct hmap mcgroups = HMAP_INITIALIZER(&mcgroups);
 
-    build_lswitch_flows(datapaths, ports, &lflows, &mcgroups);
+    build_lswitch_flows(ctx, datapaths, ports, &lflows, &mcgroups);
     build_lrouter_flows(datapaths, ports, &lflows);
 
     /* Push changes to the Logical_Flow table to database. */
