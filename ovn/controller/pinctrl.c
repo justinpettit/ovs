@@ -657,6 +657,15 @@ exit:
 }
 
 static void
+pinctrl_handle_log(const struct flow *headers)
+{
+    static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(100, 5);
+    char *s = flow_to_string(headers);
+    VLOG_WARN_RL(&rl, "LOG: %s", s);
+    free(s);
+}
+
+static void
 process_packet_in(const struct ofp_header *msg)
 {
     static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 5);
@@ -717,7 +726,7 @@ process_packet_in(const struct ofp_header *msg)
         break;
 
     case ACTION_OPCODE_LOG:
-        VLOG_WARN_RL(&rl, "Received log message!");
+        pinctrl_handle_log(&headers);
         break;
 
     default:
