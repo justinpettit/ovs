@@ -1662,21 +1662,70 @@ free_SET_QUEUE(struct ovnact_set_queue *a OVS_UNUSED)
 }
 
 static void
-format_LOG(const struct ovnact_null *a OVS_UNUSED, struct ds *s)
+parse_log_arg(struct action_context *ctx,
+              struct ovnact_log *log)
 {
-    ds_put_cstr(s, "log;");
+    if (lexer_match_id(ctx->lexer, "type")) {
+        if (!lexer_force_match(ctx->lexer, LEX_T_EQUALS)) {
+            return;
+        }
+        if (ctx->lexer->token.type == LEX_T_INTEGER) {
+            log->type = ntohll(ctx->lexer->token.value.integer);
+        } else {
+            lexer_syntax_error(ctx->lexer, "expecting integer");
+            return;
+        }
+        lexer_get(ctx->lexer);
+    } else {
+        lexer_syntax_error(ctx->lexer, NULL);
+    }
+}
+static void
+parse_LOG(struct action_context *ctx)
+{
+    struct ovnact_log *log = ovnact_put_LOG(ctx->ovnacts);
+    log->type = LOG_TYPE_ACL_DROP;
+    if (lexer_match(ctx->lexer, LEX_T_LPAREN)) {
+        while (!lexer_match(ctx->lexer, LEX_T_RPAREN)) {
+            parse_log_arg(ctx, log);
+            if (ctx->lexer->error) {
+                return;
+            }
+            lexer_match(ctx->lexer, LEX_T_COMMA);
+        }
+    }
 }
 
 static void
-encode_LOG(const struct ovnact_null *a OVS_UNUSED,
+format_LOG(const struct ovnact_log *log, struct ds *s)
+{
+    ds_put_cstr(s, "log(");
+    ds_put_format(s, "type=%#"PRIx32, log->type);
+    ds_put_cstr(s, ");");
+}
+
+static void
+encode_LOG(const struct ovnact_log *log,
            const struct ovnact_encode_params *ep OVS_UNUSED,
            struct ofpbuf *ofpacts)
 {
+    /*
+    const struct arg args[] = {
+        { expr_resolve_field(&log->type), MFF_LOG_REG0}
+    };
+    encode_setup_args(args, ARRAY_SIZE(args), ofpacts);
     encode_controller_op(ACTION_OPCODE_LOG, ofpacts);
+    encode_restore_args(args, ARRAY_SIZE(args), ofpacts);
+    */
+
+    size_t oc_offset = encode_start_controller_op(ACTION_OPCODE_LOG, false,
+                                                  ofpacts);
+    ofpbuf_put(ofpacts, &log->type, sizeof log->type);
+    encode_finish_controller_op(oc_offset, ofpacts);
 }
 
 static void
-free_LOG(struct ovnact_null *a OVS_UNUSED)
+free_LOG(struct ovnact_log *a OVS_UNUSED)
 {
 }
 
@@ -1753,7 +1802,7 @@ parse_action(struct action_context *ctx)
     } else if (lexer_match_id(ctx->lexer, "set_queue")) {
         parse_SET_QUEUE(ctx);
     } else if (lexer_match_id(ctx->lexer, "log")) {
-        ovnact_put_LOG(ctx->ovnacts);
+        parse_LOG(ctx);
     } else {
         lexer_syntax_error(ctx->lexer, "expecting action");
     }

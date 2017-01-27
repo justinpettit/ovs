@@ -657,12 +657,31 @@ exit:
 }
 
 static void
-pinctrl_handle_log(const struct flow *headers)
+pinctrl_handle_log(const struct flow *headers,
+                   struct ofpbuf *userdata)
 {
+    uint32_t *type = ofpbuf_try_pull(userdata, sizeof *type);
+    if (!type) {
+        static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 5);
+        VLOG_WARN_RL(&rl, "Log type not present in the userdata");
+        return;
+    }
+    char *str_type;
+    switch (*type) {
+        case LOG_TYPE_ACL_DROP:
+            str_type = "ACL_DROP";
+            break;
+        case LOG_TYPE_ACL_ALLOW:
+            str_type = "ACL_ALLOW";
+            break;
+        default:
+            str_type = "TYPE UNKNOWN";
+            break;
+    }
+    char *str_headers = flow_to_string(headers);
     static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(100, 5);
-    char *s = flow_to_string(headers);
-    VLOG_WARN_RL(&rl, "LOG: %s", s);
-    free(s);
+    VLOG_WARN_RL(&rl, "LOG:%s %s", str_type, str_headers);
+    free(str_headers);
 }
 
 static void
@@ -726,7 +745,7 @@ process_packet_in(const struct ofp_header *msg)
         break;
 
     case ACTION_OPCODE_LOG:
-        pinctrl_handle_log(&headers);
+        pinctrl_handle_log(&headers, &userdata);
         break;
 
     default:

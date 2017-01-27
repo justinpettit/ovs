@@ -5442,8 +5442,21 @@ AT_CLEANUP
 
 
 AT_SETUP([ovn -- ACL logging])
-AT_KEYWORDS([ovn])
+AT_KEYWORDS([ovn-acl-log])
 ovn_start
+
+net_add n1
+
+sim_add hv1
+as hv1
+ovs-vsctl add-br br-phys
+ovn_attach n1 br-phys 192.168.0.1
+for i in lp1 lp2; do
+    ovs-vsctl -- add-port br-int $i -- \
+        set interface $i external-ids:iface-id=$i \
+        options:tx_pcap=hv1/$i-tx.pcap \
+        options:rxq_pcap=hv1/$i-rx.pcap
+done
 
 lp1_mac="f0:00:00:00:00:01"
 lp1_ip="192.168.1.2"
@@ -5456,6 +5469,8 @@ ovn-nbctl --wait=sb lsp-add lsw0 lp1
 ovn-nbctl --wait=sb lsp-add lsw0 lp2
 ovn-nbctl lsp-set-addresses lp1 $lp1_mac
 ovn-nbctl lsp-set-addresses lp2 $lp2_mac
+# enable logging for invalid packets
+ovn-nbctl set nb_global . acl_log_invalid=true
 ovn-nbctl --wait=sb sync
 
 ovn-nbctl acl-add lsw0 to-lport 1000 'tcp.dst==80' drop
@@ -5464,46 +5479,73 @@ ovn-nbctl --log acl-add lsw0 to-lport 1000 'tcp.dst==81' drop
 ovn-nbctl acl-add lsw0 to-lport 1000 'tcp.dst==82' allow
 ovn-nbctl --log acl-add lsw0 to-lport 1000 'tcp.dst==83' allow
 
-ovn-nbctl acl-add lsw0 to-lport 1000 'tcp.dst==82' allow-related
-ovn-nbctl --log acl-add lsw0 to-lport 1000 'tcp.dst==83' allow-related
+ovn-nbctl acl-add lsw0 to-lport 1000 'tcp.dst==84' allow-related
+ovn-nbctl --log acl-add lsw0 to-lport 1000 'tcp.dst==85' allow-related
 
+ovn-sbctl dump-flows
+as hv1 ovs-ofctl dump-flows br-int
 # Send packet that should be dropped without logging.
 packet="inport==\"lp1\" && eth.src==$lp1_mac && eth.dst==$lp2_mac &&
         ip4 && ip.ttl==64 && ip4.src==$lp1_ip && ip4.dst==$lp2_ip &&
-        tcp && tcp.src==4360 && tcp.dst==80"
+        tcp && tcp.flags==2 && tcp.src==4360 && tcp.dst==80"
 as hv1 ovs-appctl -t ovn-controller inject-pkt "$packet"
 
 # Send packet that should be dropped with logging.
 packet="inport==\"lp1\" && eth.src==$lp1_mac && eth.dst==$lp2_mac &&
         ip4 && ip.ttl==64 && ip4.src==$lp1_ip && ip4.dst==$lp2_ip &&
-        tcp && tcp.src==4361 && tcp.dst==81"
+        tcp && tcp.flags==2 && tcp.src==4360 && tcp.dst==81"
 as hv1 ovs-appctl -t ovn-controller inject-pkt "$packet"
 
 # Send packet that should be allowed without logging.
 packet="inport==\"lp1\" && eth.src==$lp1_mac && eth.dst==$lp2_mac &&
         ip4 && ip.ttl==64 && ip4.src==$lp1_ip && ip4.dst==$lp2_ip &&
-        tcp && tcp.src==4360 && tcp.dst==80"
+        tcp && tcp.flags==2 && tcp.src==4360 && tcp.dst==82"
 as hv1 ovs-appctl -t ovn-controller inject-pkt "$packet"
 
 # Send packet that should be allowed with logging.
 packet="inport==\"lp1\" && eth.src==$lp1_mac && eth.dst==$lp2_mac &&
         ip4 && ip.ttl==64 && ip4.src==$lp1_ip && ip4.dst==$lp2_ip &&
-        tcp && tcp.src==4361 && tcp.dst==81"
+        tcp && tcp.flags==2 && tcp.src==4360 && tcp.dst==83"
 as hv1 ovs-appctl -t ovn-controller inject-pkt "$packet"
 
 # Send packet that should allow related flows without logging.
 packet="inport==\"lp1\" && eth.src==$lp1_mac && eth.dst==$lp2_mac &&
         ip4 && ip.ttl==64 && ip4.src==$lp1_ip && ip4.dst==$lp2_ip &&
-        tcp && tcp.src==4360 && tcp.dst==80"
+        tcp && tcp.flags==2 && tcp.src==4360 && tcp.dst==84"
+as hv1 ovs-appctl -t ovn-controller inject-pkt "$packet"
+packet="inport==\"lp1\" && eth.src==$lp1_mac && eth.dst==$lp2_mac &&
+        ip4 && ip.ttl==64 && ip4.src==$lp1_ip && ip4.dst==$lp2_ip &&
+        tcp && tcp.flags==18 && tcp.src==4360 && tcp.dst==84"
 as hv1 ovs-appctl -t ovn-controller inject-pkt "$packet"
 
 # Send packet that should allow related flows with logging.
 packet="inport==\"lp1\" && eth.src==$lp1_mac && eth.dst==$lp2_mac &&
         ip4 && ip.ttl==64 && ip4.src==$lp1_ip && ip4.dst==$lp2_ip &&
-        tcp && tcp.src==4361 && tcp.dst==81"
+        tcp && tcp.flags==2 && tcp.src==4360 && tcp.dst==85"
+as hv1 ovs-appctl -t ovn-controller inject-pkt "$packet"
+packet="inport==\"lp1\" && eth.src==$lp1_mac && eth.dst==$lp2_mac &&
+        ip4 && ip.ttl==64 && ip4.src==$lp1_ip && ip4.dst==$lp2_ip &&
+        tcp && tcp.flags==18 && tcp.src==4360 && tcp.dst==85"
 as hv1 ovs-appctl -t ovn-controller inject-pkt "$packet"
 
-OVN_CLEANUP([hv])
+# Send packet that is invalid and should be dropped with logging.
+packet="inport==\"lp1\" && eth.src==$lp1_mac && eth.dst==$lp2_mac &&
+        ip4 && ip.ttl==64 && ip4.src==$lp1_ip && ip4.dst==$lp2_ip &&
+        tcp && tcp.src==4360 && tcp.dst==99"
+as hv1 ovs-appctl -t ovn-controller inject-pkt "$packet"
+
+sleep 2
+as hv1 ovs-ofctl dump-flows br-int
+AT_FAIL_IF([test -n "`grep 'tp_dst=80' hv1/ovn-controller.log`"])
+AT_FAIL_IF([test -z "`grep 'tp_dst=81' hv1/ovn-controller.log | grep 'ACL_DROP'`"])
+AT_FAIL_IF([test -n "`grep 'tp_dst=82' hv1/ovn-controller.log`"])
+AT_FAIL_IF([test -z "`grep 'tp_dst=83' hv1/ovn-controller.log | grep 'ACL_ALLOW'`"])
+AT_FAIL_IF([test -n "`grep 'tp_dst=84' hv1/ovn-controller.log`"])
+AT_FAIL_IF([test -z "`grep 'tp_dst=85' hv1/ovn-controller.log | grep 'syn' | grep -v 'ack' | grep 'ACL_ALLOW'`"])
+AT_FAIL_IF([test -z "`grep 'tp_dst=85' hv1/ovn-controller.log | grep 'syn' | grep 'ack' | grep 'ACL_ALLOW'`"])
+AT_FAIL_IF([test -z "`grep 'tp_dst=99' hv1/ovn-controller.log | grep 'ACL_DROP'`"])
+
+OVN_CLEANUP([hv1])
 AT_CLEANUP
 
 

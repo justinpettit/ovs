@@ -69,7 +69,7 @@ struct simap;
     OVNACT(PUT_DHCPV4_OPTS,   ovnact_put_dhcp_opts)     \
     OVNACT(PUT_DHCPV6_OPTS,   ovnact_put_dhcp_opts)     \
     OVNACT(SET_QUEUE,         ovnact_set_queue)         \
-    OVNACT(LOG,               ovnact_null)
+    OVNACT(LOG,               ovnact_log)
 
 /* enum ovnact_type, with a member OVNACT_<ENUM> for each action. */
 enum OVS_PACKED_ENUM ovnact_type {
@@ -233,6 +233,16 @@ struct ovnact_put_dhcp_opts {
 struct ovnact_set_queue {
     struct ovnact ovnact;
     uint16_t queue_id;
+};
+
+/* Valid arguments to LOG action. */
+#define LOG_TYPE_ACL_DROP   0
+#define LOG_TYPE_ACL_ALLOW  1
+
+/* OVNACT_LOG. */
+struct ovnact_log {
+    struct ovnact ovnact;
+    uint32_t type;
 };
 
 /* Internal use by the helpers below. */

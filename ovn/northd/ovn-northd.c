@@ -2484,18 +2484,21 @@ build_acls(struct northd_context *ctx, struct ovn_datapath *od,
 
         if (!strcmp(acl->action, "allow")
             || !strcmp(acl->action, "allow-related")) {
+            char *log_action = xasprintf(" log(type=%u);", LOG_TYPE_ACL_ALLOW);
+            struct ds actions = DS_EMPTY_INITIALIZER;
             /* If there are any stateful flows, we must even commit "allow"
              * actions.  This is because, while the initiater's
              * direction may not have any stateful rules, the server's
              * may and then its return traffic would not have an
              * associated conntrack entry and would return "+invalid". */
             if (!has_stateful) {
+                ds_put_format(&actions, "%s next;",
+                              acl->log ? log_action : "");
                 ovn_lflow_add(lflows, od, stage,
                               acl->priority + OVN_ACL_PRI_OFFSET, acl->match,
-                              acl->log ? "log; next;" : "next;");
+                              ds_cstr(&actions));
             } else {
                 struct ds match = DS_EMPTY_INITIALIZER;
-                struct ds actions = DS_EMPTY_INITIALIZER;
 
                 /* Commit the connection tracking entry if it's a new
                  * connection that matches this ACL.  After this commit,
@@ -2514,8 +2517,8 @@ build_acls(struct northd_context *ctx, struct ovn_datapath *od,
                                            "&& ct_label.blocked == 1)) "
                                       "&& (%s)", acl->match);
                 ds_put_format(&actions,
-                              REGBIT_CONNTRACK_COMMIT" = 1; %s; next;",
-                              acl->log ? "log" : "");
+                              REGBIT_CONNTRACK_COMMIT" = 1;%s next;",
+                              acl->log ? log_action : "");
                 ovn_lflow_add(lflows, od, stage,
                               acl->priority + OVN_ACL_PRI_OFFSET,
                               ds_cstr(&match), ds_cstr(&actions));
@@ -2532,14 +2535,16 @@ build_acls(struct northd_context *ctx, struct ovn_datapath *od,
                               "!ct.new && ct.est && !ct.rpl"
                               " && ct_label.blocked == 0 && (%s)",
                               acl->match);
-                ds_put_format(&actions, "%s; next;", acl->log ? "log" : "");
+                ds_put_format(&actions, "%s next;",
+                              acl->log ? log_action : "");
                 ovn_lflow_add(lflows, od, stage,
                               acl->priority + OVN_ACL_PRI_OFFSET,
                               ds_cstr(&match), ds_cstr(&actions));
 
                 ds_destroy(&match);
-                ds_destroy(&actions);
             }
+            ds_destroy(&actions);
+            free(log_action);
         } else if (!strcmp(acl->action, "drop")
                    || !strcmp(acl->action, "reject")) {
             struct ds match = DS_EMPTY_INITIALIZER;
