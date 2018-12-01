@@ -52,8 +52,7 @@ ovn/northd/OVN_Southbound.dl: ovn/ovn-sb.ovsschema
 				-k Meter.name                   \
 				> $@
 
-CLEANFILES += ovn/northd/OVN_Northbound.dl ovn/northd/OVN_Southbound.dl \
-			  ovn/northd/OVN_Northbound.dl ovn/northd/OVN_Northbound.dl
+CLEANFILES += ovn/northd/OVN_Northbound.dl ovn/northd/OVN_Southbound.dl
 
 ovn/northd/ovn_northd_ddlog/target/debug/ovn_northd_cli: \
 	ovn/northd/ovn_northd.dl	 \
@@ -77,5 +76,6 @@ ovn_northd_ovn_northd_LDADD += \
 
 CLEANFILES += \
 	ovn/northd/ovn_northd_ddlog/target/debug/libovn_northd_ddlog.la \
-	ovn/northd/ovn_northd_ddlog/ovn_northd_ddlog.h
+	ovn/northd/ovn_northd_ddlog/ovn_northd_ddlog.h \
+	ovn/northd/ovn_northd_ddlog/target/debug/ovn_northd_cli
 endif
