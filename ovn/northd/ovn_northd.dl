@@ -4637,7 +4637,7 @@ for (&Router(.dpname = dpname))
     Flow(.logical_datapath = dpname,
          .stage         = router_stage(IN, ARP_REQUEST),
          .priority         = 100,
-         .__match          = "eth.dst == 00:00:00:00:00:00",
+         .__match          = "eth.dst == 00:00:00:00:00:00 && ip",
          .actions          = "arp { "
                              "eth.dst = ff:ff:ff:ff:ff:ff; "
                              "arp.spa = reg1; "
@@ -4650,7 +4650,7 @@ for (&Router(.dpname = dpname))
     Flow(.logical_datapath = dpname,
          .stage         = router_stage(IN, ARP_REQUEST),
          .priority         = 100,
-         .__match          = "eth.dst == 00:00:00:00:00:00",
+         .__match          = "eth.dst == 00:00:00:00:00:00 && ip6",
          .actions          = "nd_ns { "
                              "nd.target = xxreg0; "
                              "output; "
